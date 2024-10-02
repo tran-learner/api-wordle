@@ -109,12 +109,19 @@ app.post('/register', (req, res) => {
                 console.log(err)
                 return res.status(500)
             }
-            db.query('insert into user(username, password) values (?,?)', [username, hashedPassword], (error, result) => {
+            db.query('select* from user where username=?', [username], (error, result) => {
                 if (error) {
-                    return res.status(500).json({ message: 'An error happens while storing user inf.' })
+                    return res.status(500).json({ message: 'Unexpected error happended. Please try again later.' })
                 }
-                return res.status(201).json({ message: 'create user successfully.' })
+                if (result.length !== 0) return res.status(409).json({ message: 'Username is already exist.' })
+                db.query('insert into user(username, password) values (?,?)', [username, hashedPassword], (error, result) => {
+                    if (error) {
+                        return res.status(500).json({ message: 'An error happens while storing user inf.' })
+                    }
+                    return res.status(201).json({ message: 'Done! Now you can login!' })
+                })
             })
+
         })
     } catch (error) {
         return res.status(500).json({ message: 'Server error.' })
@@ -145,7 +152,7 @@ app.post('/login', (req, res) => {
 
 //---------------------------------USER PROGRESS-------------------------------------------
 const verify = (req, res, next) => {
-    const token = req.headers['Authorization']
+    const token = req.headers['authorization']
     console.log(token)
     if (!token) {
         return res.status(500).send('Token not included in request.')
@@ -157,6 +164,7 @@ const verify = (req, res, next) => {
         }
         console.log('ok')
         console.log(decodeded)
+        next()
     })
 }
 
@@ -172,26 +180,34 @@ app.post('/progress', verify, (req, res) => {
         if (result.length === 0) {
             db.query('insert into user_progress values (?,?)', [userId, progress], (insert_error) => {
                 if (insert_error) return res.status(500).send(insert_error)
+                return res.status(201).json({
+                    message: "Save progress successfully.",
+                    progress: progress
+                })
             })
         }
         else {
             db.query('update user_progress set progress=? where user_id=?', [progress, userId], (update_error) => {
                 if (update_error) return res.status(500).send(update_error)
+                return res.status(200).json({
+                    message: "Save progress successfully.",
+                    progress: progress
+                })
             })
         }
-
-        return res.status(401).json({
-            message: "Save progress successfully.",
-            progress: progress
-        })
     })
 })
 
-app.get('/progress/:id', verify, (req, res) => {
-    const userId = req.params.id
+app.post('/getprogress', verify, (req, res) => {
+    const userId = req.body.id
+    console.log(userId)
     db.query('select* from user_progress where user_id=?', [userId], (error, result) => {
         if (error) return res.status(500).send('Error getting user progress')
-        console.log(result)
+        // console.log('result: ',result)
+        // console.log('result: ',res.json(result))
+        // if (result.length === 0) return res.json({
+
+        // })
         return res.json(result)
     })
 })
@@ -200,3 +216,33 @@ app.get('/progress/:id', verify, (req, res) => {
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
+
+
+
+//--------------------for feeding---------------------
+app.post('/feed', (req, res) => {
+    const progress = req.body.progress
+    //lấy userid = userId
+    const userId = req.body.user_id
+    db.query('select* from user_progress where user_id=?', [userId], (error, result) => {
+        if (error) throw error
+        if (result.length === 0) {
+            db.query('insert into user_progress values (?,?)', [userId, progress], (insert_error) => {
+                if (insert_error) return res.status(500).send(insert_error)
+                return res.status(201).json({
+                    message: "Save progress successfully.",
+                    progress: progress
+                })
+            })
+        }
+        else {
+            db.query('update user_progress set progress=? where user_id=?', [progress, userId], (update_error) => {
+                if (update_error) return res.status(500).send(update_error)
+                return res.status(200).json({
+                    message: "Save progress successfully.",
+                    progress: progress
+                })
+            })
+        }
+    })
+})

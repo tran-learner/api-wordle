@@ -225,7 +225,7 @@ app.post('/feed', (req, res) => {
     //lấy userid = userId
     const userId = req.body.user_id
     db.query('select* from user_progress where user_id=?', [userId], (error, result) => {
-        if (error) throw error
+        if (error) throw error 
         if (result.length === 0) {
             db.query('insert into user_progress values (?,?)', [userId, progress], (insert_error) => {
                 if (insert_error) return res.status(500).send(insert_error)
